@@ -36,4 +36,8 @@ appId: ${MAESTRO_APP_ID}
       # this regex allows for different hosts and ports
       - tapOn: "http://.*:.*" 
       - waitForAnimationToEnd
-      - tapOn: "Close" # dismiss the bottom sheet
+      - runFlow:
+          when:
+            visible: "Close"
+          commands:
+            - tapOn: "Close" # dismiss the bottom sheet
