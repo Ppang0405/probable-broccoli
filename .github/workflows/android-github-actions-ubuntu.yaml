@@ -126,7 +126,7 @@ jobs:
           script: |
             adb wait-for-device
             adb install app-build/app-debug.apk
-            maestro test .maestro/flows -e MAESTRO_APP_ID=com.example.app
+            maestro test .maestro/flows -e MAESTRO_APP_ID=com.pizzaapp
 
       - name: Upload Maestro debug output
         if: failure() || cancelled()
