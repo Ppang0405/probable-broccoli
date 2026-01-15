@@ -10,8 +10,17 @@ on:
 jobs:
   android-maestro-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # Only run if the build workflow succeeded, or if manually triggered
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      API_LEVEL: 30
+      EMULATOR_PROFILE: pixel_5
+      EMULATOR_RAM_SIZE: '4096M'
+      AVD_NAME: maestro_test_emulator
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -53,21 +62,76 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install AVD dependencies
+        run: |
+          sudo apt update
+          sudo apt-get install -y libpulse0 libgl1 libxkbfile1
+
       - name: Install Maestro
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Restore AVD cache
+        id: restore-avd-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.API_LEVEL }}-${{ env.EMULATOR_PROFILE }}-${{ env.EMULATOR_RAM_SIZE }}
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.restore-avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          profile: ${{ env.EMULATOR_PROFILE }}
+          ram-size: ${{ env.EMULATOR_RAM_SIZE }}
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          avd-name: ${{ env.AVD_NAME }}
+          disable-animations: false
+          force-avd-creation: false
+          target: google_apis
+          arch: x86_64
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Store AVD cache
+        if: steps.restore-avd-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: ${{ steps.restore-avd-cache.outputs.cache-primary-key }}
+
       - name: Run Maestro Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: ${{ env.API_LEVEL }}
+          profile: ${{ env.EMULATOR_PROFILE }}
+          ram-size: ${{ env.EMULATOR_RAM_SIZE }}
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          avd-name: ${{ env.AVD_NAME }}
+          disable-animations: true
+          force-avd-creation: false
           target: google_apis
           arch: x86_64
-          force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: true
           script: |
             adb wait-for-device
             adb install app-build/app-debug.apk
             maestro test .maestro/flows -e MAESTRO_APP_ID=com.example.app
+
+      - name: Upload Maestro debug output
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-debug-output
+          path: ~/.maestro/tests/**/*
+          if-no-files-found: ignore
