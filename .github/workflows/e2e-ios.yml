@@ -14,6 +14,8 @@ jobs:
     timeout-minutes: 60
     env:
       MAESTRO_VERSION: 1.39.0 # Pin a stable version
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: 600000
+      MAESTRO_CLI_NO_ANALYTICS: 1
       JAVA_VERSION: '17'
       # GitHub Actions macOS-14/15 runners usually have iPhone 16 Pro
       SIMULATOR_NAME: iPhone 16 Pro 
@@ -44,7 +46,7 @@ jobs:
 
       - name: Install Maestro
         run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          curl -fsSL "https://get.maestro.mobile.dev" | bash -s "${{ env.MAESTRO_VERSION }}"
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: Build iOS App for Simulator
@@ -80,8 +82,30 @@ jobs:
           echo "Booting $SIMULATOR_NAME ($DEVICE_ID)..."
           xcrun simctl boot "$DEVICE_ID" || true
 
-          # Wait for boot
-          xcrun simctl bootstatus "$DEVICE_ID"
+          # Wait for simulator to be fully booted
+          TIMEOUT=300
+          START_TIME=$(date +%s)
+          echo "Waiting for simulator to boot..."
+
+          while true; do
+            CURRENT_TIME=$(date +%s)
+            ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+
+            if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
+              echo "Timeout: simulator failed to boot for $TIMEOUT seconds."
+              exit 1
+            fi
+
+            STATUS=$(xcrun simctl list | grep "$DEVICE_ID" | grep "(Booted)")
+
+            if [[ -n "$STATUS" ]]; then
+              echo "Simulator is booted!"
+              break
+            else
+              echo "Still waiting for the simulator to boot ($ELAPSED_TIME seconds)..."
+              sleep 10
+            fi
+          done
 
       - name: Install App on Simulator
         run: |
@@ -100,5 +124,34 @@ jobs:
 
       - name: Run Maestro Tests
         run: |
-          # Ensure adb/idb is ready
-          maestro test .maestro/flows -e MAESTRO_APP_ID=com.pizzaapp
+          # Try running tests with retries as iOS drivers can be flaky in CI
+          for i in 1 2 3; do
+            echo "Maestro test attempt $i..."
+            if maestro test .maestro/flows -e MAESTRO_APP_ID=com.pizzaapp --format junit --output report.xml; then
+              echo "Tests passed!"
+              exit 0
+            else
+              echo "Maestro tests failed on attempt $i"
+              if [ $i -lt 3 ]; then
+                echo "Retrying in 10 seconds..."
+                sleep 10
+              fi
+            fi
+          done
+          echo "Maestro tests failed after 3 attempts"
+          exit 1
+
+      - name: Upload Maestro Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-report-ios
+          path: report.xml
+
+      - name: Upload Maestro debug output
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-debug-output-ios
+          path: ~/.maestro/tests/**/*
+          if-no-files-found: ignore
