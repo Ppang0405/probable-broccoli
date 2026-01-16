@@ -66,6 +66,9 @@ jobs:
             -sdk iphonesimulator \
             -derivedDataPath ios/build \
             ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
             -quiet
 
       - name: Boot iOS Simulator
