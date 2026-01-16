@@ -126,7 +126,14 @@ jobs:
           script: |
             adb wait-for-device
             adb install app-build/app-release.apk
-            maestro test .maestro/flows -e MAESTRO_APP_ID=com.pizzaapp
+            maestro test .maestro/flows -e MAESTRO_APP_ID=com.pizzaapp --format junit --output report.xml
+
+      - name: Upload Maestro Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-report
+          path: report.xml
 
       - name: Upload Maestro debug output
         if: failure() || cancelled()
