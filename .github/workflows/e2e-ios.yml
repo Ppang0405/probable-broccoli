@@ -15,8 +15,8 @@ jobs:
     env:
       MAESTRO_VERSION: 1.39.0 # Pin a stable version
       JAVA_VERSION: '17'
-      # GitHub Actions macOS-14/15 runners usually have iPhone 15 Pro
-      SIMULATOR_NAME: iPhone 15 Pro 
+      # GitHub Actions macOS-14/15 runners usually have iPhone 16 Pro
+      SIMULATOR_NAME: iPhone 16 Pro 
       
     steps:
       - name: Checkout
