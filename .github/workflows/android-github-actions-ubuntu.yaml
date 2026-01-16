@@ -30,7 +30,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_run' }}
         uses: actions/download-artifact@v4
         with:
-          name: app-debug
+          name: app-release
           path: app-build
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
@@ -41,11 +41,11 @@ jobs:
         run: |
           mkdir -p app-build
           # Look for APK in android build output
-          if [ -f "android/app/build/outputs/apk/debug/app-debug.apk" ]; then
-            cp android/app/build/outputs/apk/debug/app-debug.apk app-build/app-debug.apk
+          if [ -f "android/app/build/outputs/apk/release/app-release.apk" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk app-build/app-release.apk
             echo "APK found in android build output"
-          elif [ -f "temp_artifacts/app-debug.apk" ]; then
-            cp temp_artifacts/app-debug.apk app-build/app-debug.apk
+          elif [ -f "temp_artifacts/app-release.apk" ]; then
+            cp temp_artifacts/app-release.apk app-build/app-release.apk
             echo "APK found in temp_artifacts"
           else
             echo "Warning: No APK found. Please build the APK first or run after the build workflow."
@@ -125,7 +125,7 @@ jobs:
           arch: x86_64
           script: |
             adb wait-for-device
-            adb install app-build/app-debug.apk
+            adb install app-build/app-release.apk
             maestro test .maestro/flows -e MAESTRO_APP_ID=com.pizzaapp
 
       - name: Upload Maestro debug output
