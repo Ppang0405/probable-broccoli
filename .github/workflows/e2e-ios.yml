@@ -52,16 +52,14 @@ jobs:
           # 1. Prebuild the project to generate ios folder
           npx expo prebuild --platform ios --clean
           
-          # 2. Build using xcodebuild
-          # We search for the workspace file that expo generated
-          WORKSPACE=$(find ios -name "*.xcworkspace" | head -n 1)
-          SCHEME="PizzaApp"
+          # 2. List ios directory for debugging
+          ls -R ios | grep .xcworkspace || true
           
-          echo "Building $SCHEME from $WORKSPACE..."
-          
+          # 3. Build using xcodebuild
+          # Explicitly target the workspace and scheme
           xcodebuild \
-            -workspace "$WORKSPACE" \
-            -scheme "$SCHEME" \
+            -workspace ios/PizzaApp.xcworkspace \
+            -scheme PizzaApp \
             -configuration Debug \
             -sdk iphonesimulator \
             -derivedDataPath ios/build \
@@ -92,6 +90,8 @@ jobs:
           
           if [ -z "$APP_PATH" ]; then
              echo "Could not find .app file!"
+             # List the build directory to help debug
+             find ios/build/Build/Products/Debug-iphonesimulator -maxdepth 2
              exit 1
           fi
           
