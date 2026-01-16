@@ -50,7 +50,7 @@ jobs:
       - name: Build iOS App for Simulator
         run: |
           # 1. Prebuild the project to generate ios folder
-          npx expo prebuild --platform ios --clean --no-interactive
+          npx expo prebuild --platform ios --clean
           
           # 2. Build using xcodebuild
           # We search for the workspace file that expo generated
