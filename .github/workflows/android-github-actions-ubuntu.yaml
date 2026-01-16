@@ -69,7 +69,7 @@ jobs:
 
       - name: Install Maestro
         run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
+          curl -fsSL "https://get.maestro.mobile.dev" | bash -s "v1.39.0"
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: Enable KVM

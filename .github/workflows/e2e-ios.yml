@@ -2,6 +2,8 @@ name: E2E iOS
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -50,25 +52,20 @@ jobs:
           # 1. Prebuild the project to generate ios folder
           npx expo prebuild --platform ios --clean --no-interactive
           
-          # 2. Ensure Pods are installed correctly
-          cd ios
-          pod install
-          cd ..
-
-          # 3. Build using xcodebuild
+          # 2. Build using xcodebuild
+          # We search for the workspace file that expo generated
           WORKSPACE=$(find ios -name "*.xcworkspace" | head -n 1)
           SCHEME="PizzaApp"
           
           echo "Building $SCHEME from $WORKSPACE..."
           
-          # Use specific destination to avoid ambiguity and architecture issues
           xcodebuild \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
             -derivedDataPath ios/build \
+            ONLY_ACTIVE_ARCH=YES \
             -quiet
 
       - name: Boot iOS Simulator
